@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="generator" content="Pelican" />
+        <title>blog - publishing</title>
+        <link rel="stylesheet" href="/theme/css/main.css" />
+</head>
+
+<body id="index" class="home">
+        <header id="banner" class="body">
+                <h1><a href="/">blog</a></h1>
+                <nav><ul>
+                    <li><a href="/category/python.html">Python</a></li>
+                </ul></nav>
+        </header><!-- /#banner -->
+
+            <aside id="featured" class="body">
+                <article>
+                    <h1 class="entry-title"><a href="/my-super-post.html">My super title</a></h1>
+<footer class="post-info">
+        <abbr class="published" title="2010-12-03T10:20:00+08:00">
+                Published: Fri 03 December 2010
+        </abbr>
+		<br />
+        <abbr class="modified" title="2010-12-05T19:30:00+08:00">
+                Updated: Sun 05 December 2010
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/alexis-metaireau.html">Alexis Metaireau</a>
+                        <a class="url fn" href="/author/conan-doyle.html">Conan Doyle</a>
+        </address>
+<p>In <a href="/category/python.html">Python</a>.</p>
+<p>tags: <a href="/tag/pelican.html">pelican</a> <a href="/tag/publishing.html">publishing</a> </p>
+</footer><!-- /.post-info --><h1>引言</h1>
+<p>大家好，我叫 Austin。</p>
+<p>今天我要介紹在自然語言處理中一種名為隨機同義詞替換的數據增強方法。</p>
+<p>在人類對話或書寫時，我們常使用不同的單詞表達同一事物。<br>
+<img alt="同義詞範例" src="/images/2021-05-29-自然語言處理的數據增強_隨機同義詞替換_image1.png"></p>
+<p>因此，這種方法是在模擬人類日常對話或寫作時，用不同的詞來表達同一事物。</p>
+<p>在這個方法中，關鍵是用同義詞代替隨機選擇的詞來防止神經網路過擬合。</p>
+<p>好！讓我們來寫程式吧。</p>
+<h1>步驟</h1>
+<p>此方法有 3 個步驟。</p>
+<p>第一步，我們需要隨機選擇一個單詞，並設置一個相似度的閾值，以防止取得不相似的同義詞。</p>
+<p>第二步，根據選定的單詞找出前 10 個相似的同義詞並利用閾值去除閾值以下的相似同義詞。</p>
+<p>第三步，從上一步的結果中隨機選擇同義詞替換選定的單詞。</p>
+<h1>要求</h1>
+<p>請按照以下列表安裝套件。</p>
+<div class="highlight"><pre><span></span><code><span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">upgrade</span> <span class="n">gensim</span> <span class="n">numpy</span>
+</code></pre></div>
+
+<h1>程式碼</h1>
+<h2>import</h2>
+<div class="highlight"><pre><span></span><code><span class="c1">#import</span>
+<span class="kn">from</span> <span class="nn">gensim.models.word2vec</span> <span class="kn">import</span> <span class="n">Word2Vec</span>
+<span class="kn">import</span> <span class="nn">gensim.downloader</span> <span class="k">as</span> <span class="nn">api</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">string</span>
+</code></pre></div>
+
+<h2>class</h2>
+<div class="highlight"><pre><span></span><code><span class="c1"># class</span>
+
+
+<span class="k">class</span> <span class="nc">RandomSynonymReplacement</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">corpus</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">similarity_threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">Word2Vec</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">corpus</span><span class="p">))</span>  <span class="c1"># create the model of Word2Vec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">similarity_threshold</span> <span class="o">=</span> <span class="n">similarity_threshold</span>    <span class="c1"># set the threshold</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># Split the input text with spaces to get each word</span>
+        <span class="c1"># and check if the last character is a punctuation mark</span>
+        <span class="k">if</span> <span class="n">text</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">punctuation</span><span class="p">:</span>
+            <span class="n">words</span> <span class="o">=</span> <span class="n">text</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">words</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">)</span>
+
+        <span class="c1"># randomly select a word and replace it with a synonym</span>
+        <span class="k">for</span> <span class="n">word_index</span> <span class="ow">in</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">words</span><span class="p">)),</span> <span class="nb">len</span><span class="p">(</span><span class="n">words</span><span class="p">)):</span>
+            <span class="n">word</span> <span class="o">=</span> <span class="n">words</span><span class="p">[</span><span class="n">word_index</span><span class="p">]</span>
+            <span class="c1"># turn the selected word to lower case</span>
+            <span class="c1"># and check it whether exist in the vocabulary of the Word2Vec model</span>
+            <span class="k">if</span> <span class="n">word</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">wv</span><span class="o">.</span><span class="n">key_to_index</span><span class="p">:</span>
+                <span class="c1"># get similarity word by the model of Word2Vec</span>
+                <span class="c1"># and put it to numpy array</span>
+                <span class="n">similarity_word</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">wv</span><span class="o">.</span><span class="n">most_similar</span><span class="p">(</span><span class="n">word</span><span class="o">.</span><span class="n">lower</span><span class="p">()))</span>
+                <span class="c1"># get the similarity from similarity_word</span>
+                <span class="n">similarity</span> <span class="o">=</span> <span class="n">similarity_word</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+                <span class="c1"># get the index with similarity above the threshold</span>
+                <span class="n">similarity_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                    <span class="n">similarity</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">similarity_threshold</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="c1"># check the length of similarity_index</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">similarity_index</span><span class="p">):</span>
+                    <span class="c1"># randomly select the synonym</span>
+                    <span class="n">words</span><span class="p">[</span><span class="n">words</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">word</span><span class="p">)]</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span>
+                        <span class="nb">list</span><span class="p">(</span><span class="n">similarity_word</span><span class="p">[</span><span class="n">similarity_index</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="c1"># check if the last character is a punctuation mark</span>
+                    <span class="k">if</span> <span class="n">text</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="n">string</span><span class="o">.</span><span class="n">punctuation</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">words</span><span class="p">)</span><span class="o">+</span><span class="n">text</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">words</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">text</span>
+</code></pre></div>
+
+<h2>call</h2>
+<div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1"># create a class of RandomSynonymReplacement</span>
+    <span class="n">random_synonym_replacement</span> <span class="o">=</span> <span class="n">RandomSynonymReplacement</span><span class="p">(</span>
+        <span class="n">corpus</span><span class="o">=</span><span class="s1">&#39;text8&#39;</span><span class="p">,</span> <span class="n">similarity_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+    <span class="c1"># define a string</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;Hello, World!&#39;</span>
+
+    <span class="c1"># check the result</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">random_synonym_replacement</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="n">text</span><span class="p">))</span>
+</code></pre></div>
+
+<h2>result</h2>
+<div class="highlight"><pre><span></span><code><span class="n">Hello</span><span class="p">,</span> <span class="n">World</span><span class="err">!</span>
+<span class="n">Hello</span><span class="p">,</span> <span class="n">europe</span><span class="err">!</span>
+</code></pre></div>
+
+<h2>完整版本</h2>
+<p>完整版的程式碼在這裡: <a href="https://github.com/fastyangmh/toolkit/blob/main/Python/RandomSynonymReplacement.py">https://github.com/fastyangmh/toolkit/blob/main/Python/RandomSynonymReplacement.py</a></p>
+<h1>結論</h1>
+<p>如果您有任何問題，請隨時通過電子郵件與我聯繫。</p>
+<h1>參考連結</h1>
+<p><a href="https://radimrehurek.com/gensim/intro.html">What is Gensim?</a><br>
+<a href="https://numpy.org/">NumPy</a><br>
+<a href="https://maelfabien.github.io/machinelearning/NLP_8/#when-should-we-use-data-augmentation">Data Augmentation in Natural Language Processing</a><br>
+<a href="https://marssu.coderbridge.io/2020/10/26/nlp-data-augmenatation-%E5%B8%B8%E8%A6%8B%E6%96%B9%E6%B3%95/">NLP Data Augmentation 常見方法</a></p>                </article>
+            </aside><!-- /#featured -->
+        <section id="extras" class="body">
+                <div class="blogroll">
+                        <h2>links</h2>
+                        <ul>
+                            <li><a href="https://getpelican.com/">Pelican</a></li>
+                            <li><a href="https://www.python.org/">Python.org</a></li>
+                            <li><a href="https://palletsprojects.com/p/jinja/">Jinja2</a></li>
+                            <li><a href="#">You can modify those links in your config file</a></li>
+                        </ul>
+                </div><!-- /.blogroll -->
+                <div class="social">
+                        <h2>social</h2>
+                        <ul>
+
+                            <li><a href="#">You can add links in your config file</a></li>
+                            <li><a href="#">Another social link</a></li>
+                        </ul>
+                </div><!-- /.social -->
+        </section><!-- /#extras -->
+
+        <footer id="contentinfo" class="body">
+                <address id="about" class="vcard body">
+                Proudly powered by <a href="https://getpelican.com/">Pelican</a>, which takes great advantage of <a href="https://www.python.org/">Python</a>.
+                </address><!-- /#about -->
+
+                <p>The theme is by <a href="https://www.smashingmagazine.com/2009/08/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
+        </footer><!-- /#contentinfo -->
+
+</body>
+</html>
